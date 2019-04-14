@@ -1,0 +1,10 @@
+[package]
+name = "magickwand"
+version = "0.1.0"
+authors = ["Maciej Makowski <maciejm.github@cfiet.net>"]
+edition = "2018"
+
+[dependencies]
+libc = "0.2"
+ctor = "0.1.9"
+magickwand-sys = { path = "../magickwand-sys" }

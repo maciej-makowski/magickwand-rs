@@ -1,0 +1,9 @@
+[package]
+name = "magickwand-sys"
+version = "0.1.0"
+authors = ["Maciej Makowski <maciejm.github@cfiet.net>"]
+edition = "2018"
+build = "build/main.rs"
+
+[build-dependencies]
+bindgen = "0.42.2"
