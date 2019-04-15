@@ -1,6 +1,9 @@
-use magickwand_sys::*;
-use FilterType::*;
+#![allow(non_upper_case_globals)]
 
+use self::FilterType::*;
+use magickwand_sys::*;
+
+#[derive(Debug, PartialEq)]
 pub enum FilterType {
     UndefinedFilter,
     PointFilter,

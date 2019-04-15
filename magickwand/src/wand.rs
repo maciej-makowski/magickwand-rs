@@ -1,8 +1,10 @@
-use libc::c_void;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
+use crate::colorspace::ColorspaceType;
 use crate::error::*;
-use crate::filter::*;
+use crate::filter::FilterType;
+use crate::compression::CompressionType;
+use crate::utils::from_owned_magick_string;
 
 pub struct MagickWand {
     pub(crate) wand: *mut magickwand_sys::MagickWand,
@@ -72,7 +74,38 @@ impl MagickWand {
         }
     }
 
-    pub fn set_image_compression(mut self, quality: usize) -> Result<Self, MagickError> {
+    pub fn write_image(mut self, path: &str) -> Result<Self, MagickError> {
+        unsafe {
+            let path_raw = CString::new(path)?;
+            let write_result = magickwand_sys::MagickWriteImage(self.wand, path_raw.as_ptr());
+            if write_result == magickwand_sys::MagickBooleanType_MagickTrue {
+                Ok(self)
+            } else {
+                Err(self.get_magick_exception())
+            }
+        }
+    }
+
+    pub fn get_compression(&self) -> CompressionType {
+        unsafe { magickwand_sys::MagickGetCompression(self.wand).into() }
+    }
+
+    pub fn set_compression(mut self, compression: CompressionType) -> Result<Self, MagickError> {
+        unsafe {
+            let set_result = magickwand_sys::MagickSetCompression(self.wand, compression.into());
+            if set_result == magickwand_sys::MagickBooleanType_MagickTrue {
+                Ok(self)
+            } else {
+                Err(self.get_magick_exception())
+            }
+        }
+    }
+
+    pub fn get_compression_quality(&self) -> usize {
+        unsafe { magickwand_sys::MagickGetCompressionQuality(self.wand) }
+    }
+
+    pub fn set_image_compression_quality(mut self, quality: usize) -> Result<Self, MagickError> {
         unsafe {
             let change_result =
                 magickwand_sys::MagickSetImageCompressionQuality(self.wand, quality);
@@ -84,18 +117,44 @@ impl MagickWand {
         }
     }
 
-    pub fn write_image(mut self, path: &str) -> Result<Self, MagickError> {
+    pub fn has_antialias(&self) -> bool {
         unsafe {
-            let path_raw = CString::new(path)?;
-            let write_result =
-                magickwand_sys::MagickWriteImage(self.wand, path_raw.as_ptr());
-            if write_result == magickwand_sys::MagickBooleanType_MagickTrue {
+            magickwand_sys::MagickGetAntialias(self.wand)
+                == magickwand_sys::MagickBooleanType_MagickTrue
+        }
+    }
+
+    pub fn set_antialias(mut self, enabled: bool) -> Result<MagickWand, MagickError> {
+        unsafe {
+            let set_result = magickwand_sys::MagickSetAntialias(
+                self.wand,
+                if enabled {
+                    magickwand_sys::MagickBooleanType_MagickTrue
+                } else {
+                    magickwand_sys::MagickBooleanType_MagickFalse
+                },
+            );
+            if set_result == magickwand_sys::MagickBooleanType_MagickTrue {
                 Ok(self)
             } else {
                 Err(self.get_magick_exception())
             }
         }
+    }
 
+    pub fn get_colorspace(&self) -> ColorspaceType {
+        unsafe { magickwand_sys::MagickGetColorspace(self.wand).into() }
+    }
+
+    pub fn set_colorspace(mut self, colorspace: ColorspaceType) -> Result<MagickWand, MagickError> {
+        unsafe {
+            let set_result = magickwand_sys::MagickSetColorspace(self.wand, colorspace.into());
+            if set_result == magickwand_sys::MagickBooleanType_MagickTrue {
+                Ok(self)
+            } else {
+                Err(self.get_magick_exception())
+            }
+        }
     }
 
     unsafe fn get_magick_exception(&mut self) -> MagickError {
@@ -103,20 +162,12 @@ impl MagickWand {
             magickwand_sys::ExceptionType_UndefinedException;
         let exception_description_raw =
             magickwand_sys::MagickGetException(self.wand, &mut exception_type);
-        if exception_description_raw.is_null() {
-            return MagickError::NullPointerResult("MagickGetException");
-        }
 
-        let exception = CStr::from_ptr(exception_description_raw)
-            .to_str()
+        from_owned_magick_string(exception_description_raw)
             .map(|exception_description| {
                 MagickError::MagickException(exception_type, exception_description.to_string())
             })
-            .unwrap_or_else(MagickError::from);
-
-        magickwand_sys::MagickRelinquishMemory(exception_description_raw as *mut c_void);
-
-        exception
+            .unwrap_or_else(std::convert::identity)
     }
 }
 
